@@ -1451,7 +1451,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Scroll
         document.getElementById('confirmation-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-        // Send notification with signature attachment
+        // Send notification with embedded signature
         var formData = new FormData();
         formData.append('Proyecto', 'Remodelacion Riverton - 2853 W 12075 S, Riverton, UT 84065');
         formData.append('Estado', 'PROPUESTA ACEPTADA');
@@ -1459,20 +1459,10 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('Nombre del Cliente', name);
         formData.append('Email del Cliente', email);
         formData.append('Fecha de Aceptacion', dateStr);
+        formData.append('Firma_Digital', signatureData);
         formData.append('_subject', 'PROPUESTA ACEPTADA - Riverton Remodel - ' + name);
         formData.append('_captcha', 'false');
         formData.append('_template', 'table');
-
-        // Attach signature image
-        var byteString = atob(signatureData.split(',')[1]);
-        var mimeString = signatureData.split(',')[0].split(':')[1].split(';')[0];
-        var ab = new ArrayBuffer(byteString.length);
-        var ia = new Uint8Array(ab);
-        for (var i = 0; i < byteString.length; i++) {
-            ia[i] = byteString.charCodeAt(i);
-        }
-        var signatureBlob = new Blob([ab], {type: mimeString});
-        formData.append('attachment', signatureBlob, 'firma-' + name.replace(/\s+/g, '-') + '.png');
 
         fetch('https://formsubmit.co/ajax/genaro@habitatbuildersllc.com', {
             method: 'POST',
