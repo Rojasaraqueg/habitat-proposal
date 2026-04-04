@@ -1644,48 +1644,121 @@ document.addEventListener('DOMContentLoaded', function() {
         // Scroll
         document.getElementById('confirmation-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-        // Send email notification via FormSubmit AJAX (text data only)
-        document.getElementById('sending-status').textContent = 'Enviando notificacion...';
+        // Generate PDF and send to Google Apps Script for email delivery
+        document.getElementById('sending-status').textContent = 'Generando PDF firmado...';
 
-        var formData = new FormData();
-        formData.append('Proyecto', 'Remodelacion Riverton - 2853 W 12075 S, Riverton, UT 84065');
-        formData.append('Estado', 'PROPUESTA ACEPTADA');
-        formData.append('Monto', '$119,000');
-        formData.append('Nombre del Cliente', name);
-        formData.append('Email del Cliente', email);
-        formData.append('Fecha de Aceptacion', dateStr);
-        formData.append('_subject', 'PROPUESTA FIRMADA - Riverton Remodel - ' + name);
-        formData.append('_captcha', 'false');
-        formData.append('_template', 'table');
+        setTimeout(function() {
+            var allPages = document.querySelectorAll('.cover-page, .page');
+            var jsPDF = window.jspdf.jsPDF;
+            var pdf = new jsPDF('p', 'mm', 'a4');
+            var pageW = 210;
+            var pageH = 297;
 
-        fetch('https://formsubmit.co/ajax/genaro@habitatbuildersllc.com', {
-            method: 'POST',
-            body: formData
-        })
-        .then(function(r) { return r.json(); })
-        .then(function() {
-            document.getElementById('sending-status').classList.remove('visible');
-            document.getElementById('email-sent').style.display = 'block';
+            // Hide elements not needed in PDF
+            var iframe3d = document.querySelector('.model-3d-iframe-container');
+            var stampEl = document.getElementById('accepted-stamp');
+            var fabBtns = document.querySelector('.fab-container');
+            var dlBtn = document.getElementById('download-btn');
+            var sendSt = document.getElementById('sending-status');
+            var emailSt = document.getElementById('email-sent');
+            if (iframe3d) iframe3d.style.display = 'none';
+            if (stampEl) stampEl.style.display = 'none';
+            if (fabBtns) fabBtns.style.display = 'none';
+            if (dlBtn) dlBtn.style.display = 'none';
+            if (sendSt) sendSt.style.display = 'none';
+            if (emailSt) emailSt.style.display = 'none';
 
-            // Trigger browser print dialog after a brief delay so client can save as PDF
-            setTimeout(function() {
-                window.print();
-            }, 1000);
-        })
-        .catch(function() {
-            document.getElementById('sending-status').classList.remove('visible');
-            document.getElementById('email-sent').style.display = 'block';
+            // Temporarily force white background on content pages for capture
+            var contentPages = document.querySelectorAll('.page');
+            var savedStyles = [];
+            for (var s = 0; s < contentPages.length; s++) {
+                savedStyles[s] = contentPages[s].getAttribute('style') || '';
+                contentPages[s].style.background = 'white';
+                contentPages[s].style.maxWidth = '100%';
+                contentPages[s].style.margin = '0';
+            }
 
-            // Still trigger print even if email had an issue
-            setTimeout(function() {
-                window.print();
-            }, 1000);
-        });
+            function capturePage(index) {
+                if (index >= allPages.length) {
+                    // Restore styles
+                    for (var r = 0; r < contentPages.length; r++) {
+                        if (savedStyles[r]) contentPages[r].setAttribute('style', savedStyles[r]);
+                        else contentPages[r].removeAttribute('style');
+                    }
+                    if (iframe3d) iframe3d.style.display = '';
+                    if (stampEl) { stampEl.style.display = ''; stampEl.classList.add('visible'); }
+                    if (fabBtns) fabBtns.style.display = '';
+                    if (dlBtn) dlBtn.style.display = '';
+                    if (sendSt) { sendSt.style.display = ''; sendSt.classList.add('visible'); }
+
+                    // Save PDF for client download
+                    pdf.save('Propuesta-Firmada-Riverton-HabitatBuilders.pdf');
+
+                    // Convert PDF to base64 and send to Google Apps Script
+                    document.getElementById('sending-status').textContent = 'Enviando copia firmada por email...';
+                    var pdfBase64 = pdf.output('datauristring').split(',')[1];
+
+                    fetch('https://script.google.com/macros/s/AKfycbxLF7wOS1Xf2aoCzuewO4yi_-uDqky4VM25t4WQgGuR93CPF6CP6rjLrMV0T1eQOE_EFg/exec', {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            pdf: pdfBase64,
+                            nombre: name,
+                            email: email,
+                            fecha: dateStr
+                        })
+                    })
+                    .then(function() {
+                        document.getElementById('sending-status').classList.remove('visible');
+                        document.getElementById('email-sent').style.display = 'block';
+                    })
+                    .catch(function() {
+                        document.getElementById('sending-status').classList.remove('visible');
+                        document.getElementById('email-sent').style.display = 'block';
+                    });
+
+                    return;
+                }
+
+                html2canvas(allPages[index], {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true,
+                    logging: false,
+                    backgroundColor: '#ffffff'
+                }).then(function(cvs) {
+                    if (index > 0) pdf.addPage();
+                    var imgData = cvs.toDataURL('image/jpeg', 0.92);
+                    var imgW = pageW;
+                    var imgH = (cvs.height * pageW) / cvs.width;
+
+                    if (imgH > pageH) {
+                        var ratio = pageH / imgH;
+                        imgW = pageW * ratio;
+                        imgH = pageH;
+                        pdf.addImage(imgData, 'JPEG', (pageW - imgW) / 2, 0, imgW, imgH);
+                    } else {
+                        pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
+                    }
+                    capturePage(index + 1);
+                }).catch(function() {
+                    capturePage(index + 1);
+                });
+            }
+
+            capturePage(0);
+        }, 800);
     });
 
     // ===== DOWNLOAD PDF =====
     window.downloadPDF = function() {
         window.print();
+    };
+
+    // Fallback: also define acceptProposal in case any lingering onclick calls it
+    window.acceptProposal = function() {
+        document.getElementById('accept-btn').click();
     };
 });
 </script>
