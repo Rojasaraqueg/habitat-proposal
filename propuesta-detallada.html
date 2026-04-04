@@ -697,6 +697,7 @@
             display: none;
         }
         .sending-indicator.visible { display: block; }
+        .print-only-note { display: none; }
         .email-sent-badge {
             display: inline-block;
             background: #059669;
@@ -710,11 +711,92 @@
 
         /* ===== PRINT ===== */
         @media print {
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .cover-page { min-height: 100vh; }
-            .page { padding: 40px 50px; }
-            .model-3d-iframe-container { display: none; }
-            .no-print { display: none; }
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            body {
+                background: white !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            .cover-page {
+                min-height: 0 !important;
+                height: auto !important;
+                padding: 80px 40px !important;
+                page-break-after: always;
+                -webkit-print-color-adjust: exact !important;
+            }
+
+            .page {
+                background: white !important;
+                padding: 30px 40px !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                page-break-after: always;
+                page-break-inside: avoid;
+            }
+
+            /* Hide interactive elements */
+            .fab-container,
+            .model-3d-iframe-container,
+            #signature-section,
+            .accepted-stamp,
+            #download-btn,
+            .download-btn,
+            .sending-indicator,
+            .email-sent-badge,
+            .no-print { display: none !important; }
+
+            /* Show confirmation section when it's visible */
+            #confirmation-section[style*="block"] {
+                display: block !important;
+            }
+            #confirmation-section .confirmation-box {
+                border: 2px solid #059669 !important;
+            }
+
+            /* Ensure text is readable on content pages */
+            .page * { color: #1a2d3d !important; }
+            .page .section-number { color: white !important; }
+            .page .price-badge { color: white !important; }
+            .page .price-badge,
+            .page .investment-box,
+            .page .model-3d-section,
+            .page .plan-label {
+                -webkit-print-color-adjust: exact !important;
+            }
+            .page .investment-box * { color: #f1f5f9 !important; }
+            .page .investment-label { color: var(--orange) !important; }
+            .page .model-3d-section * { color: #f1f5f9 !important; }
+            .page .model-3d-section h3 { color: var(--orange) !important; }
+            .page .plan-label { color: #f1f5f9 !important; }
+            .page .plan-label span { color: var(--orange) !important; }
+            .page .complimentary-badge { color: white !important; }
+
+            /* Section titles and prices */
+            .section-price { page-break-inside: avoid; }
+            .scope-category { page-break-inside: avoid; }
+
+            /* Cover page keeps its original colors */
+            .cover-page * { }
+            .cover-page .cover-title { color: var(--orange) !important; }
+            .cover-page .cover-project { color: #f1f5f9 !important; }
+            .cover-page .cover-address { color: var(--slate) !important; }
+            .cover-page .cover-info-label { color: var(--orange) !important; }
+            .cover-page .cover-info-value { color: #cbd5e1 !important; }
+
+            /* Confirmation section print-only note */
+            .print-only-note {
+                display: block !important;
+                margin-top: 15px;
+                font-size: 11px;
+                color: var(--text-light) !important;
+                font-style: italic;
+                text-align: center;
+            }
         }
         @media (max-width: 768px) {
             .page { padding: 30px 25px; }
@@ -1376,6 +1458,7 @@
                     Descargar Documento Firmado (PDF)
                 </button>
                 <p class="conf-note" style="margin-top: 20px;">Se ha enviado una notificacion a Habitat Builders LLC con su firma y datos de aceptacion. Guarde el PDF descargado como respaldo del documento firmado. Nos pondremos en contacto con usted para coordinar los siguientes pasos.</p>
+                <p class="print-only-note">Documento firmado digitalmente</p>
             </div>
         </div>
 
@@ -1536,169 +1619,48 @@ document.addEventListener('DOMContentLoaded', function() {
         // Scroll
         document.getElementById('confirmation-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-        // Generate PDF page-by-page, auto-download, and send email notification
-        document.getElementById('sending-status').textContent = 'Generando documento firmado...';
+        // Send email notification via FormSubmit AJAX (text data only)
+        document.getElementById('sending-status').textContent = 'Enviando notificacion...';
 
-        setTimeout(function() {
-            if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
-                document.getElementById('sending-status').classList.remove('visible');
-                return;
-            }
+        var formData = new FormData();
+        formData.append('Proyecto', 'Remodelacion Riverton - 2853 W 12075 S, Riverton, UT 84065');
+        formData.append('Estado', 'PROPUESTA ACEPTADA');
+        formData.append('Monto', '$119,000');
+        formData.append('Nombre del Cliente', name);
+        formData.append('Email del Cliente', email);
+        formData.append('Fecha de Aceptacion', dateStr);
+        formData.append('_subject', 'PROPUESTA FIRMADA - Riverton Remodel - ' + name);
+        formData.append('_captcha', 'false');
+        formData.append('_template', 'table');
 
-            var allPages = document.querySelectorAll('.cover-page, .page');
-            var jsPDF = window.jspdf.jsPDF;
-            var pdf = new jsPDF('p', 'mm', 'a4');
-            var pageWidth = 210;
-            var pageHeight = 297;
+        fetch('https://formsubmit.co/ajax/genaro@habitatbuildersllc.com', {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(r) { return r.json(); })
+        .then(function() {
+            document.getElementById('sending-status').classList.remove('visible');
+            document.getElementById('email-sent').style.display = 'block';
 
-            // Hide elements not needed in PDF
-            var iframe3d = document.querySelector('.model-3d-iframe-container');
-            var stampEl = document.getElementById('accepted-stamp');
-            var fabBtns = document.querySelector('.fab-container');
-            if (iframe3d) iframe3d.style.display = 'none';
-            if (stampEl) stampEl.style.display = 'none';
-            if (fabBtns) fabBtns.style.display = 'none';
+            // Trigger browser print dialog after a brief delay so client can save as PDF
+            setTimeout(function() {
+                window.print();
+            }, 1000);
+        })
+        .catch(function() {
+            document.getElementById('sending-status').classList.remove('visible');
+            document.getElementById('email-sent').style.display = 'block';
 
-            function capturePage(index) {
-                if (index >= allPages.length) {
-                    // Restore elements
-                    if (iframe3d) iframe3d.style.display = '';
-                    if (stampEl) { stampEl.style.display = ''; stampEl.classList.add('visible'); }
-                    if (fabBtns) fabBtns.style.display = '';
-
-                    // Auto-download PDF for client
-                    pdf.save('Propuesta-Firmada-Riverton-HabitatBuilders.pdf');
-
-                    // Send email notification via FormSubmit AJAX
-                    var formData = new FormData();
-                    formData.append('Proyecto', 'Remodelacion Riverton - 2853 W 12075 S, Riverton, UT 84065');
-                    formData.append('Estado', 'PROPUESTA ACEPTADA');
-                    formData.append('Monto', '$119,000');
-                    formData.append('Nombre del Cliente', name);
-                    formData.append('Email del Cliente', email);
-                    formData.append('Fecha de Aceptacion', dateStr);
-                    formData.append('_subject', 'PROPUESTA FIRMADA - Riverton Remodel - ' + name);
-                    formData.append('_captcha', 'false');
-                    formData.append('_template', 'table');
-
-                    // Try attaching PDF blob directly
-                    var pdfBlob = pdf.output('blob');
-                    formData.append('attachment', pdfBlob, 'Propuesta-Firmada-' + name.replace(/\\s+/g, '-') + '.pdf');
-
-                    fetch('https://formsubmit.co/ajax/genaro@habitatbuildersllc.com', {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(function(r) { return r.json(); })
-                    .then(function() {
-                        document.getElementById('sending-status').classList.remove('visible');
-                        document.getElementById('email-sent').style.display = 'block';
-                    })
-                    .catch(function() {
-                        document.getElementById('sending-status').classList.remove('visible');
-                        document.getElementById('email-sent').style.display = 'block';
-                    });
-
-                    return;
-                }
-
-                html2canvas(allPages[index], {
-                    scale: 2,
-                    useCORS: true,
-                    allowTaint: true,
-                    logging: false,
-                    backgroundColor: null
-                }).then(function(cvs) {
-                    if (index > 0) pdf.addPage();
-
-                    var imgData = cvs.toDataURL('image/jpeg', 0.92);
-                    var imgW = pageWidth;
-                    var imgH = (cvs.height * pageWidth) / cvs.width;
-
-                    // Scale down if content is taller than A4 page
-                    if (imgH > pageHeight) {
-                        var ratio = pageHeight / imgH;
-                        imgW = pageWidth * ratio;
-                        imgH = pageHeight;
-                        var xOffset = (pageWidth - imgW) / 2;
-                        pdf.addImage(imgData, 'JPEG', xOffset, 0, imgW, imgH);
-                    } else {
-                        pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
-                    }
-
-                    capturePage(index + 1);
-                }).catch(function() {
-                    capturePage(index + 1);
-                });
-            }
-
-            capturePage(0);
-        }, 800);
+            // Still trigger print even if email had an issue
+            setTimeout(function() {
+                window.print();
+            }, 1000);
+        });
     });
 
     // ===== DOWNLOAD PDF =====
     window.downloadPDF = function() {
-        var btn = document.getElementById('download-btn');
-        btn.textContent = 'Generando PDF...';
-        btn.disabled = true;
-
-        if (typeof html2canvas !== 'undefined' && typeof window.jspdf !== 'undefined') {
-            var allPages = document.querySelectorAll('.cover-page, .page');
-            var jsPDF = window.jspdf.jsPDF;
-            var pdf = new jsPDF('p', 'mm', 'a4');
-            var pageWidth = 210;
-            var pageHeight = 297;
-
-            var iframe3d = document.querySelector('.model-3d-iframe-container');
-            var stampEl = document.getElementById('accepted-stamp');
-            var fabBtns = document.querySelector('.fab-container');
-            if (iframe3d) iframe3d.style.display = 'none';
-            if (stampEl) stampEl.style.display = 'none';
-            if (fabBtns) fabBtns.style.display = 'none';
-
-            function capturePageDL(index) {
-                if (index >= allPages.length) {
-                    if (iframe3d) iframe3d.style.display = '';
-                    if (stampEl) { stampEl.style.display = ''; stampEl.classList.add('visible'); }
-                    if (fabBtns) fabBtns.style.display = '';
-                    pdf.save('Propuesta-Firmada-Riverton-HabitatBuilders.pdf');
-                    btn.textContent = 'Descargar Documento Firmado (PDF)';
-                    btn.disabled = false;
-                    return;
-                }
-
-                html2canvas(allPages[index], {
-                    scale: 2,
-                    useCORS: true,
-                    allowTaint: true,
-                    logging: false,
-                    backgroundColor: null
-                }).then(function(cvs) {
-                    if (index > 0) pdf.addPage();
-                    var imgData = cvs.toDataURL('image/jpeg', 0.92);
-                    var imgW = pageWidth;
-                    var imgH = (cvs.height * pageWidth) / cvs.width;
-
-                    if (imgH > pageHeight) {
-                        var ratio = pageHeight / imgH;
-                        imgW = pageWidth * ratio;
-                        imgH = pageHeight;
-                        var xOffset = (pageWidth - imgW) / 2;
-                        pdf.addImage(imgData, 'JPEG', xOffset, 0, imgW, imgH);
-                    } else {
-                        pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
-                    }
-                    capturePageDL(index + 1);
-                }).catch(function() {
-                    capturePageDL(index + 1);
-                });
-            }
-            capturePageDL(0);
-        } else {
-            btn.textContent = 'Descargar Documento Firmado (PDF)';
-            btn.disabled = false;
-            window.print();
-        }
+        window.print();
     };
 });
 </script>
