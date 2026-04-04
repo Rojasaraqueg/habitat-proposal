@@ -1710,7 +1710,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Save PDF for client download
                 pdf.save('Propuesta-Firmada-Riverton-HabitatBuilders.pdf');
 
-                // Send to Google Apps Script
+                // Send PDF to Google Apps Script via hidden iframe + form (no CORS issues)
                 document.getElementById('sending-status').textContent = 'Enviando copia firmada por email...';
                 var pdfBase64 = pdf.output('datauristring').split(',')[1];
 
@@ -1721,24 +1721,35 @@ document.addEventListener('DOMContentLoaded', function() {
                     fecha: dateStr
                 });
 
-                // Try fetch first, fallback to XHR
-                try {
-                    var xhr = new XMLHttpRequest();
-                    xhr.open('POST', 'https://script.google.com/macros/s/AKfycbwhfOSD3CQjQ5JdwmY4qaAn1bPAQFTd3AzKZUqpk504vQSW89TrZrB3ENI_iW3GU8Lv/exec');
-                    xhr.setRequestHeader('Content-Type', 'text/plain');
-                    xhr.onload = function() {
-                        document.getElementById('sending-status').classList.remove('visible');
-                        document.getElementById('email-sent').style.display = 'block';
-                    };
-                    xhr.onerror = function() {
-                        document.getElementById('sending-status').classList.remove('visible');
-                        document.getElementById('email-sent').style.display = 'block';
-                    };
-                    xhr.send(payload);
-                } catch(e) {
+                // Create hidden iframe and form
+                var gasIframe = document.getElementById('gas-iframe');
+                if (!gasIframe) {
+                    gasIframe = document.createElement('iframe');
+                    gasIframe.id = 'gas-iframe';
+                    gasIframe.name = 'gas-iframe';
+                    gasIframe.style.display = 'none';
+                    document.body.appendChild(gasIframe);
+                }
+
+                var gasForm = document.createElement('form');
+                gasForm.method = 'POST';
+                gasForm.action = 'https://script.google.com/macros/s/AKfycbwhfOSD3CQjQ5JdwmY4qaAn1bPAQFTd3AzKZUqpk504vQSW89TrZrB3ENI_iW3GU8Lv/exec';
+                gasForm.target = 'gas-iframe';
+                gasForm.style.display = 'none';
+
+                var payloadInput = document.createElement('textarea');
+                payloadInput.name = 'payload';
+                payloadInput.value = payload;
+                gasForm.appendChild(payloadInput);
+
+                document.body.appendChild(gasForm);
+                gasForm.submit();
+                document.body.removeChild(gasForm);
+
+                setTimeout(function() {
                     document.getElementById('sending-status').classList.remove('visible');
                     document.getElementById('email-sent').style.display = 'block';
-                }
+                }, 3000);
             }
 
             // Step 1: Capture cover page
