@@ -1686,79 +1686,106 @@ document.addEventListener('DOMContentLoaded', function() {
                 contentPages[s].style.padding = '30px 40px';
             }
 
-            function capturePage(index) {
-                if (index >= allPages.length) {
-                    // Restore styles
-                    if (coverPage) {
-                        if (coverSaved) coverPage.setAttribute('style', coverSaved);
-                        else coverPage.removeAttribute('style');
-                    }
-                    for (var r = 0; r < contentPages.length; r++) {
-                        if (savedStyles[r]) contentPages[r].setAttribute('style', savedStyles[r]);
-                        else contentPages[r].removeAttribute('style');
-                    }
-                    if (iframe3d) iframe3d.style.display = '';
-                    if (stampEl) { stampEl.style.display = ''; stampEl.classList.add('visible'); }
-                    if (fabBtns) fabBtns.style.display = '';
-                    if (dlBtn) dlBtn.style.display = '';
-                    if (sendSt) { sendSt.style.display = ''; sendSt.classList.add('visible'); }
+            // Remove page breaks so content flows continuously
+            for (var p = 0; p < contentPages.length; p++) {
+                contentPages[p].style.pageBreakAfter = 'auto';
+            }
 
-                    // Save PDF for client download
-                    pdf.save('Propuesta-Firmada-Riverton-HabitatBuilders.pdf');
-
-                    // Convert PDF to base64 and send to Google Apps Script
-                    document.getElementById('sending-status').textContent = 'Enviando copia firmada por email...';
-                    var pdfBase64 = pdf.output('datauristring').split(',')[1];
-
-                    fetch('https://script.google.com/macros/s/AKfycbwhfOSD3CQjQ5JdwmY4qaAn1bPAQFTd3AzKZUqpk504vQSW89TrZrB3ENI_iW3GU8Lv/exec', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            pdf: pdfBase64,
-                            nombre: name,
-                            email: email,
-                            fecha: dateStr
-                        }),
-                        mode: 'no-cors'
-                    })
-                    .then(function() {
-                        document.getElementById('sending-status').classList.remove('visible');
-                        document.getElementById('email-sent').style.display = 'block';
-                    })
-                    .catch(function() {
-                        document.getElementById('sending-status').classList.remove('visible');
-                        document.getElementById('email-sent').style.display = 'block';
-                    });
-
-                    return;
+            function restoreAndSend() {
+                // Restore all styles
+                if (coverPage) {
+                    if (coverSaved) coverPage.setAttribute('style', coverSaved);
+                    else coverPage.removeAttribute('style');
                 }
+                for (var r = 0; r < contentPages.length; r++) {
+                    if (savedStyles[r]) contentPages[r].setAttribute('style', savedStyles[r]);
+                    else contentPages[r].removeAttribute('style');
+                }
+                if (iframe3d) iframe3d.style.display = '';
+                if (stampEl) { stampEl.style.display = ''; stampEl.classList.add('visible'); }
+                if (fabBtns) fabBtns.style.display = '';
+                if (dlBtn) dlBtn.style.display = '';
+                if (sendSt) { sendSt.style.display = ''; sendSt.classList.add('visible'); }
 
-                var isCover = allPages[index].classList.contains('cover-page');
-                html2canvas(allPages[index], {
+                // Save PDF for client download
+                pdf.save('Propuesta-Firmada-Riverton-HabitatBuilders.pdf');
+
+                // Send to Google Apps Script
+                document.getElementById('sending-status').textContent = 'Enviando copia firmada por email...';
+                var pdfBase64 = pdf.output('datauristring').split(',')[1];
+
+                fetch('https://script.google.com/macros/s/AKfycbwhfOSD3CQjQ5JdwmY4qaAn1bPAQFTd3AzKZUqpk504vQSW89TrZrB3ENI_iW3GU8Lv/exec', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        pdf: pdfBase64,
+                        nombre: name,
+                        email: email,
+                        fecha: dateStr
+                    }),
+                    mode: 'no-cors'
+                })
+                .then(function() {
+                    document.getElementById('sending-status').classList.remove('visible');
+                    document.getElementById('email-sent').style.display = 'block';
+                })
+                .catch(function() {
+                    document.getElementById('sending-status').classList.remove('visible');
+                    document.getElementById('email-sent').style.display = 'block';
+                });
+            }
+
+            // Step 1: Capture cover page
+            html2canvas(coverPage, {
+                scale: 1.5,
+                useCORS: true,
+                allowTaint: true,
+                logging: false,
+                backgroundColor: null
+            }).then(function(coverCvs) {
+                var coverImg = coverCvs.toDataURL('image/jpeg', 0.9);
+                var coverW = pageW;
+                var coverH = (coverCvs.height * pageW) / coverCvs.width;
+                pdf.addImage(coverImg, 'JPEG', 0, 0, coverW, coverH);
+
+                // Step 2: Hide cover, capture all content as one continuous image
+                coverPage.style.display = 'none';
+
+                html2canvas(document.body, {
                     scale: 1.5,
                     useCORS: true,
                     allowTaint: true,
                     logging: false,
-                    backgroundColor: isCover ? null : '#ffffff'
-                }).then(function(cvs) {
-                    if (index > 0) pdf.addPage();
-                    var imgData = cvs.toDataURL('image/jpeg', 0.85);
-                    var imgW = pageW;
-                    var imgH = (cvs.height * pageW) / cvs.width;
+                    backgroundColor: '#ffffff',
+                    width: 900,
+                    windowWidth: 900
+                }).then(function(bodyCvs) {
+                    coverPage.style.display = '';
 
-                    // Always full width - if taller than A4, overflow to next pages
-                    pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
+                    var bodyImg = bodyCvs.toDataURL('image/jpeg', 0.85);
+                    var imgW = pageW;
+                    var imgH = (bodyCvs.height * pageW) / bodyCvs.width;
+
+                    // Paginate content across A4 pages
+                    var position = 0;
+                    pdf.addPage();
+                    pdf.addImage(bodyImg, 'JPEG', 0, 0, imgW, imgH);
                     var heightLeft = imgH - pageH;
+
                     while (heightLeft > 0) {
+                        position = -(imgH - heightLeft);
                         pdf.addPage();
-                        pdf.addImage(imgData, 'JPEG', 0, -(imgH - heightLeft), imgW, imgH);
+                        pdf.addImage(bodyImg, 'JPEG', 0, position, imgW, imgH);
                         heightLeft -= pageH;
                     }
 
-                    capturePage(index + 1);
+                    restoreAndSend();
                 }).catch(function() {
-                    capturePage(index + 1);
+                    coverPage.style.display = '';
+                    restoreAndSend();
                 });
-            }
+            }).catch(function() {
+                restoreAndSend();
+            });
 
             capturePage(0);
         }, 800);
