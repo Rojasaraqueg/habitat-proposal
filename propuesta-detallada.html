@@ -1700,14 +1700,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     fetch('https://script.google.com/macros/s/AKfycbxLF7wOS1Xf2aoCzuewO4yi_-uDqky4VM25t4WQgGuR93CPF6CP6rjLrMV0T1eQOE_EFg/exec', {
                         method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             pdf: pdfBase64,
                             nombre: name,
                             email: email,
                             fecha: dateStr
-                        })
+                        }),
+                        redirect: 'follow'
                     })
                     .then(function() {
                         document.getElementById('sending-status').classList.remove('visible');
@@ -1721,15 +1720,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
 
+                var isCover = allPages[index].classList.contains('cover-page');
                 html2canvas(allPages[index], {
-                    scale: 2,
+                    scale: 1.5,
                     useCORS: true,
                     allowTaint: true,
                     logging: false,
-                    backgroundColor: '#ffffff'
+                    backgroundColor: isCover ? null : '#ffffff'
                 }).then(function(cvs) {
                     if (index > 0) pdf.addPage();
-                    var imgData = cvs.toDataURL('image/jpeg', 0.92);
+                    var imgData = cvs.toDataURL('image/jpeg', 0.85);
                     var imgW = pageW;
                     var imgH = (cvs.height * pageW) / cvs.width;
 
