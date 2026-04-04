@@ -848,7 +848,7 @@
         <div class="cover-info-row">
             <div class="cover-info-item">
                 <div class="cover-info-label">Fecha</div>
-                <div class="cover-info-value">1 de Abril, 2026</div>
+                <div class="cover-info-value">4 de Abril, 2026</div>
             </div>
             <div class="cover-info-item">
                 <div class="cover-info-label">Propuesta No.</div>
@@ -901,7 +901,7 @@
             </div>
             <div class="detail-card">
                 <div class="detail-card-label">Fecha de Propuesta</div>
-                <div class="detail-card-value">1 de Abril, 2026</div>
+                <div class="detail-card-value">4 de Abril, 2026</div>
             </div>
         </div>
 
@@ -1411,7 +1411,7 @@
         <div class="terms-section">
             <h3>Terminos y Condiciones</h3>
             <ul class="terms-list">
-                <li><strong>Validez de la Propuesta:</strong> Esta propuesta es valida por 30 dias a partir de la fecha de emision (1 de Abril, 2026). Despues de este periodo, los precios pueden estar sujetos a cambios debido a fluctuaciones en el costo de materiales.</li>
+                <li><strong>Validez de la Propuesta:</strong> Esta propuesta es valida por 30 dias a partir de la fecha de emision (4 de Abril, 2026). Despues de este periodo, los precios pueden estar sujetos a cambios debido a fluctuaciones en el costo de materiales.</li>
                 <li><strong>Ordenes de Cambio:</strong> Cualquier trabajo solicitado fuera del alcance descrito en esta propuesta sera documentado como una orden de cambio por escrito y puede resultar en cargos adicionales y ajustes al cronograma.</li>
                 <li><strong>Permisos:</strong> Todos los permisos de construccion necesarios seran obtenidos por Habitat Builders LLC. El cronograma del proyecto no incluye el periodo de revision de permisos de la ciudad.</li>
                 <li><strong>Garantia:</strong> Habitat Builders LLC garantiza toda la mano de obra por un periodo de un (1) año a partir de la fecha de finalizacion del proyecto. Las garantias del fabricante sobre materiales y equipos aplican por separado.</li>
@@ -1714,24 +1714,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('sending-status').textContent = 'Enviando copia firmada por email...';
                 var pdfBase64 = pdf.output('datauristring').split(',')[1];
 
-                fetch('https://script.google.com/macros/s/AKfycbwhfOSD3CQjQ5JdwmY4qaAn1bPAQFTd3AzKZUqpk504vQSW89TrZrB3ENI_iW3GU8Lv/exec', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        pdf: pdfBase64,
-                        nombre: name,
-                        email: email,
-                        fecha: dateStr
-                    }),
-                    mode: 'no-cors'
-                })
-                .then(function() {
-                    document.getElementById('sending-status').classList.remove('visible');
-                    document.getElementById('email-sent').style.display = 'block';
-                })
-                .catch(function() {
-                    document.getElementById('sending-status').classList.remove('visible');
-                    document.getElementById('email-sent').style.display = 'block';
+                var payload = JSON.stringify({
+                    pdf: pdfBase64,
+                    nombre: name,
+                    email: email,
+                    fecha: dateStr
                 });
+
+                // Try fetch first, fallback to XHR
+                try {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', 'https://script.google.com/macros/s/AKfycbwhfOSD3CQjQ5JdwmY4qaAn1bPAQFTd3AzKZUqpk504vQSW89TrZrB3ENI_iW3GU8Lv/exec');
+                    xhr.setRequestHeader('Content-Type', 'text/plain');
+                    xhr.onload = function() {
+                        document.getElementById('sending-status').classList.remove('visible');
+                        document.getElementById('email-sent').style.display = 'block';
+                    };
+                    xhr.onerror = function() {
+                        document.getElementById('sending-status').classList.remove('visible');
+                        document.getElementById('email-sent').style.display = 'block';
+                    };
+                    xhr.send(payload);
+                } catch(e) {
+                    document.getElementById('sending-status').classList.remove('visible');
+                    document.getElementById('email-sent').style.display = 'block';
+                }
             }
 
             // Step 1: Capture cover page
