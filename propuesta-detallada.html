@@ -759,9 +759,12 @@
             }
 
             /* Ensure text is readable on content pages */
-            .page * { color: #1a2d3d !important; }
-            .page .section-number { color: white !important; }
-            .page .price-badge { color: white !important; }
+            .page h2, .page h3, .page li, .page p, .page div, .page span, .page strong, .page label { color: #1a2d3d !important; }
+            .page .section-number { color: white !important; background: var(--orange) !important; }
+            .page .price-badge { color: white !important; background: var(--navy) !important; }
+            .page .scope-list li::before { border-color: var(--orange) !important; }
+            .page .section-divider { background: linear-gradient(90deg, var(--orange), transparent) !important; }
+            .page .scope-category h3 { color: var(--orange) !important; }
             .page .price-badge,
             .page .investment-box,
             .page .model-3d-section,
@@ -1424,7 +1427,7 @@
                 <span id="sig-date" class="sig-date-value"></span>
             </div>
 
-            <button type="button" id="accept-btn" class="accept-btn" onclick="acceptProposal()">
+            <button type="button" id="accept-btn" class="accept-btn">
                 Acepto la Propuesta
             </button>
 
