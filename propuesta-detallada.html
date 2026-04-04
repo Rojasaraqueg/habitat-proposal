@@ -722,22 +722,69 @@
                 padding: 0 !important;
             }
 
+            /* Cover page: keep dark design */
             .cover-page {
                 min-height: 0 !important;
                 height: auto !important;
-                padding: 80px 40px !important;
+                padding: 60px 40px !important;
                 page-break-after: always;
-                -webkit-print-color-adjust: exact !important;
+                background: linear-gradient(135deg, #0f2d3d 0%, #14303e 50%, #1a3a4a 100%) !important;
             }
+            .cover-page .cover-title { color: #e8751a !important; }
+            .cover-page .cover-project { color: #f1f5f9 !important; }
+            .cover-page .cover-address { color: #94a3b8 !important; }
+            .cover-page .cover-info-label { color: #e8751a !important; }
+            .cover-page .cover-info-value { color: #cbd5e1 !important; }
 
+            /* Content pages: white background, dark text */
             .page {
                 background: white !important;
                 padding: 30px 40px !important;
                 max-width: 100% !important;
                 margin: 0 !important;
                 page-break-after: always;
-                page-break-inside: avoid;
             }
+
+            /* ALL text in content pages = dark */
+            .page, .page * { color: #1a2d3d !important; }
+
+            /* Exceptions: elements that need their original colors */
+            .page .section-number { color: white !important; background: #e8751a !important; }
+            .page .price-badge { color: white !important; background: #0f2d3d !important; }
+            .page .scope-list li::before { border-color: #e8751a !important; }
+            .page .section-divider { background: linear-gradient(90deg, #e8751a, transparent) !important; }
+            .page .scope-category h3 { color: #e8751a !important; }
+            .page .complimentary-badge { color: white !important; background: #059669 !important; }
+            .page .page-header { border-bottom: 2px solid #0f2d3d !important; }
+
+            /* Investment box: keep dark design */
+            .page .investment-box {
+                background: linear-gradient(135deg, #0f2d3d 0%, #1a3a4a 100%) !important;
+            }
+            .page .investment-box,
+            .page .investment-box * { color: #f1f5f9 !important; }
+            .page .investment-label { color: #e8751a !important; }
+
+            /* Payment boxes */
+            .page .investment-box div[style*="background: white"] { background: white !important; }
+            .page .investment-box div[style*="background: white"] * { color: #0f2d3d !important; }
+            .page .investment-box div[style*="color: var(--orange)"] { color: #e8751a !important; }
+            .page .investment-box div[style*="color: #059669"] { color: #059669 !important; }
+
+            /* 3D model section: keep dark */
+            .page .model-3d-section {
+                background: linear-gradient(135deg, #0f2d3d 0%, #1a3a4a 100%) !important;
+            }
+            .page .model-3d-section, .page .model-3d-section * { color: #f1f5f9 !important; }
+            .page .model-3d-section h3 { color: #e8751a !important; }
+
+            /* Plan labels */
+            .page .plan-label { color: #f1f5f9 !important; background: #0f2d3d !important; }
+            .page .plan-label span { color: #e8751a !important; }
+
+            /* Page breaks */
+            .section-price { page-break-inside: avoid; }
+            .scope-category { page-break-inside: avoid; }
 
             /* Hide interactive elements */
             .fab-container,
@@ -750,53 +797,28 @@
             .email-sent-badge,
             .no-print { display: none !important; }
 
-            /* Show confirmation section when it's visible */
-            #confirmation-section[style*="block"] {
+            /* CRITICAL: Show confirmation section with signature in print */
+            #confirmation-section {
                 display: block !important;
             }
             #confirmation-section .confirmation-box {
                 border: 2px solid #059669 !important;
+                background: white !important;
+                padding: 30px !important;
+            }
+            #confirmation-section .confirmation-box * { color: #1a2d3d !important; }
+            #confirmation-section .confirmation-box h3 { color: #059669 !important; }
+            #confirmation-section .conf-signature-preview img {
+                max-width: 300px !important;
+                border: 1px solid #e2e8f0 !important;
             }
 
-            /* Ensure text is readable on content pages */
-            .page h2, .page h3, .page li, .page p, .page div, .page span, .page strong, .page label { color: #1a2d3d !important; }
-            .page .section-number { color: white !important; background: var(--orange) !important; }
-            .page .price-badge { color: white !important; background: var(--navy) !important; }
-            .page .scope-list li::before { border-color: var(--orange) !important; }
-            .page .section-divider { background: linear-gradient(90deg, var(--orange), transparent) !important; }
-            .page .scope-category h3 { color: var(--orange) !important; }
-            .page .price-badge,
-            .page .investment-box,
-            .page .model-3d-section,
-            .page .plan-label {
-                -webkit-print-color-adjust: exact !important;
-            }
-            .page .investment-box * { color: #f1f5f9 !important; }
-            .page .investment-label { color: var(--orange) !important; }
-            .page .model-3d-section * { color: #f1f5f9 !important; }
-            .page .model-3d-section h3 { color: var(--orange) !important; }
-            .page .plan-label { color: #f1f5f9 !important; }
-            .page .plan-label span { color: var(--orange) !important; }
-            .page .complimentary-badge { color: white !important; }
-
-            /* Section titles and prices */
-            .section-price { page-break-inside: avoid; }
-            .scope-category { page-break-inside: avoid; }
-
-            /* Cover page keeps its original colors */
-            .cover-page * { }
-            .cover-page .cover-title { color: var(--orange) !important; }
-            .cover-page .cover-project { color: #f1f5f9 !important; }
-            .cover-page .cover-address { color: var(--slate) !important; }
-            .cover-page .cover-info-label { color: var(--orange) !important; }
-            .cover-page .cover-info-value { color: #cbd5e1 !important; }
-
-            /* Confirmation section print-only note */
+            /* Print-only note */
             .print-only-note {
                 display: block !important;
                 margin-top: 15px;
                 font-size: 11px;
-                color: var(--text-light) !important;
+                color: #64748b !important;
                 font-style: italic;
                 text-align: center;
             }
