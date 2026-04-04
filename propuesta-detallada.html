@@ -1668,7 +1668,14 @@ document.addEventListener('DOMContentLoaded', function() {
             if (sendSt) sendSt.style.display = 'none';
             if (emailSt) emailSt.style.display = 'none';
 
-            // Temporarily force white background on content pages for capture
+            // Temporarily adjust styles for capture
+            var coverPage = document.querySelector('.cover-page');
+            var coverSaved = coverPage ? (coverPage.getAttribute('style') || '') : '';
+            if (coverPage) {
+                coverPage.style.minHeight = 'auto';
+                coverPage.style.height = 'auto';
+                coverPage.style.padding = '60px 40px';
+            }
             var contentPages = document.querySelectorAll('.page');
             var savedStyles = [];
             for (var s = 0; s < contentPages.length; s++) {
@@ -1676,11 +1683,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 contentPages[s].style.background = 'white';
                 contentPages[s].style.maxWidth = '100%';
                 contentPages[s].style.margin = '0';
+                contentPages[s].style.padding = '30px 40px';
             }
 
             function capturePage(index) {
                 if (index >= allPages.length) {
                     // Restore styles
+                    if (coverPage) {
+                        if (coverSaved) coverPage.setAttribute('style', coverSaved);
+                        else coverPage.removeAttribute('style');
+                    }
                     for (var r = 0; r < contentPages.length; r++) {
                         if (savedStyles[r]) contentPages[r].setAttribute('style', savedStyles[r]);
                         else contentPages[r].removeAttribute('style');
@@ -1733,14 +1745,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     var imgW = pageW;
                     var imgH = (cvs.height * pageW) / cvs.width;
 
-                    if (imgH > pageH) {
-                        var ratio = pageH / imgH;
-                        imgW = pageW * ratio;
-                        imgH = pageH;
-                        pdf.addImage(imgData, 'JPEG', (pageW - imgW) / 2, 0, imgW, imgH);
-                    } else {
-                        pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
+                    // Always full width - if taller than A4, overflow to next pages
+                    pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
+                    var heightLeft = imgH - pageH;
+                    while (heightLeft > 0) {
+                        pdf.addPage();
+                        pdf.addImage(imgData, 'JPEG', 0, -(imgH - heightLeft), imgW, imgH);
+                        heightLeft -= pageH;
                     }
+
                     capturePage(index + 1);
                 }).catch(function() {
                     capturePage(index + 1);
