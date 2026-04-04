@@ -1536,116 +1536,104 @@ document.addEventListener('DOMContentLoaded', function() {
         // Scroll
         document.getElementById('confirmation-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-        // Generate PDF, auto-download for client, and email to Habitat Builders
+        // Generate PDF page-by-page, auto-download, and send email notification
         document.getElementById('sending-status').textContent = 'Generando documento firmado...';
 
-        // Brief delay to let the confirmation section render
         setTimeout(function() {
             if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
                 document.getElementById('sending-status').classList.remove('visible');
-                document.getElementById('email-sent').style.display = 'block';
-                document.getElementById('email-sent').querySelector('.email-sent-badge').textContent = 'Use el boton para descargar el PDF';
                 return;
             }
 
+            var allPages = document.querySelectorAll('.cover-page, .page');
+            var jsPDF = window.jspdf.jsPDF;
+            var pdf = new jsPDF('p', 'mm', 'a4');
+            var pageWidth = 210;
+            var pageHeight = 297;
+
+            // Hide elements not needed in PDF
             var iframe3d = document.querySelector('.model-3d-iframe-container');
-            var stamp = document.getElementById('accepted-stamp');
+            var stampEl = document.getElementById('accepted-stamp');
+            var fabBtns = document.querySelector('.fab-container');
             if (iframe3d) iframe3d.style.display = 'none';
-            if (stamp) stamp.style.display = 'none';
+            if (stampEl) stampEl.style.display = 'none';
+            if (fabBtns) fabBtns.style.display = 'none';
 
-            html2canvas(document.body, {
-                scale: 1.5,
-                useCORS: true,
-                allowTaint: true,
-                scrollY: -window.scrollY,
-                windowWidth: 900,
-                windowHeight: document.body.scrollHeight,
-                logging: false
-            }).then(function(cvs) {
-                var jsPDF = window.jspdf.jsPDF;
-                var imgWidth = 210;
-                var pageHeight = 297;
-                var imgHeight = (cvs.height * imgWidth) / cvs.width;
-                var pdf = new jsPDF('p', 'mm', 'a4');
-                var heightLeft = imgHeight;
-                var position = 0;
-                var imgData = cvs.toDataURL('image/jpeg', 0.85);
+            function capturePage(index) {
+                if (index >= allPages.length) {
+                    // Restore elements
+                    if (iframe3d) iframe3d.style.display = '';
+                    if (stampEl) { stampEl.style.display = ''; stampEl.classList.add('visible'); }
+                    if (fabBtns) fabBtns.style.display = '';
 
-                pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
+                    // Auto-download PDF for client
+                    pdf.save('Propuesta-Firmada-Riverton-HabitatBuilders.pdf');
 
-                while (heightLeft > 0) {
-                    position = -(imgHeight - heightLeft);
-                    pdf.addPage();
-                    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-                    heightLeft -= pageHeight;
+                    // Send email notification via FormSubmit AJAX
+                    var formData = new FormData();
+                    formData.append('Proyecto', 'Remodelacion Riverton - 2853 W 12075 S, Riverton, UT 84065');
+                    formData.append('Estado', 'PROPUESTA ACEPTADA');
+                    formData.append('Monto', '$119,000');
+                    formData.append('Nombre del Cliente', name);
+                    formData.append('Email del Cliente', email);
+                    formData.append('Fecha de Aceptacion', dateStr);
+                    formData.append('_subject', 'PROPUESTA FIRMADA - Riverton Remodel - ' + name);
+                    formData.append('_captcha', 'false');
+                    formData.append('_template', 'table');
+
+                    // Try attaching PDF blob directly
+                    var pdfBlob = pdf.output('blob');
+                    formData.append('attachment', pdfBlob, 'Propuesta-Firmada-' + name.replace(/\\s+/g, '-') + '.pdf');
+
+                    fetch('https://formsubmit.co/ajax/genaro@habitatbuildersllc.com', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function() {
+                        document.getElementById('sending-status').classList.remove('visible');
+                        document.getElementById('email-sent').style.display = 'block';
+                    })
+                    .catch(function() {
+                        document.getElementById('sending-status').classList.remove('visible');
+                        document.getElementById('email-sent').style.display = 'block';
+                    });
+
+                    return;
                 }
 
-                // Auto-download PDF for client
-                pdf.save('Propuesta-Firmada-Riverton-HabitatBuilders.pdf');
+                html2canvas(allPages[index], {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true,
+                    logging: false,
+                    backgroundColor: null
+                }).then(function(cvs) {
+                    if (index > 0) pdf.addPage();
 
-                // Send PDF to Habitat Builders via FormSubmit (hidden iframe)
-                var pdfBlob = pdf.output('blob');
-                var pdfFile = new File([pdfBlob], 'Propuesta-Firmada-' + name.replace(/\s+/g, '-') + '.pdf', { type: 'application/pdf' });
+                    var imgData = cvs.toDataURL('image/jpeg', 0.92);
+                    var imgW = pageWidth;
+                    var imgH = (cvs.height * pageWidth) / cvs.width;
 
-                var sendForm = document.createElement('form');
-                sendForm.method = 'POST';
-                sendForm.enctype = 'multipart/form-data';
-                sendForm.action = 'https://formsubmit.co/genaro@habitatbuildersllc.com';
-                sendForm.target = 'pdf-send-frame';
-                sendForm.style.display = 'none';
+                    // Scale down if content is taller than A4 page
+                    if (imgH > pageHeight) {
+                        var ratio = pageHeight / imgH;
+                        imgW = pageWidth * ratio;
+                        imgH = pageHeight;
+                        var xOffset = (pageWidth - imgW) / 2;
+                        pdf.addImage(imgData, 'JPEG', xOffset, 0, imgW, imgH);
+                    } else {
+                        pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
+                    }
 
-                var fields = {
-                    'Proyecto': 'Remodelacion Riverton - 2853 W 12075 S, Riverton, UT 84065',
-                    'Estado': 'PROPUESTA ACEPTADA',
-                    'Monto': '$119,000',
-                    'Nombre del Cliente': name,
-                    'Email del Cliente': email,
-                    'Fecha de Aceptacion': dateStr,
-                    '_subject': 'PROPUESTA FIRMADA - Riverton Remodel - ' + name,
-                    '_captcha': 'false',
-                    '_template': 'table',
-                    '_next': 'https://rojasaraqueg.github.io/habitat-proposal/propuesta-detallada.html'
-                };
+                    capturePage(index + 1);
+                }).catch(function() {
+                    capturePage(index + 1);
+                });
+            }
 
-                for (var key in fields) {
-                    var input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = key;
-                    input.value = fields[key];
-                    sendForm.appendChild(input);
-                }
-
-                var fileInput = document.createElement('input');
-                fileInput.type = 'file';
-                fileInput.name = 'attachment';
-                fileInput.style.display = 'none';
-                sendForm.appendChild(fileInput);
-
-                var dataTransfer = new DataTransfer();
-                dataTransfer.items.add(pdfFile);
-                fileInput.files = dataTransfer.files;
-
-                var sendIframe = document.createElement('iframe');
-                sendIframe.name = 'pdf-send-frame';
-                sendIframe.style.display = 'none';
-                document.body.appendChild(sendIframe);
-                document.body.appendChild(sendForm);
-
-                sendForm.submit();
-
-                if (iframe3d) iframe3d.style.display = '';
-                if (stamp) stamp.classList.add('visible');
-
-                document.getElementById('sending-status').classList.remove('visible');
-                document.getElementById('email-sent').style.display = 'block';
-
-            }).catch(function(err) {
-                document.getElementById('sending-status').classList.remove('visible');
-                document.getElementById('email-sent').style.display = 'block';
-                document.getElementById('email-sent').querySelector('.email-sent-badge').textContent = 'Use el boton para descargar el PDF';
-            });
-        }, 500);
+            capturePage(0);
+        }, 800);
     });
 
     // ===== DOWNLOAD PDF =====
@@ -1655,50 +1643,57 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.disabled = true;
 
         if (typeof html2canvas !== 'undefined' && typeof window.jspdf !== 'undefined') {
-            var iframe = document.querySelector('.model-3d-iframe-container');
-            var stamp = document.getElementById('accepted-stamp');
-            if (iframe) iframe.style.display = 'none';
-            if (stamp) stamp.style.display = 'none';
+            var allPages = document.querySelectorAll('.cover-page, .page');
+            var jsPDF = window.jspdf.jsPDF;
+            var pdf = new jsPDF('p', 'mm', 'a4');
+            var pageWidth = 210;
+            var pageHeight = 297;
 
-            html2canvas(document.body, {
-                scale: 2,
-                useCORS: true,
-                allowTaint: true,
-                scrollY: -window.scrollY,
-                windowWidth: 900,
-                windowHeight: document.body.scrollHeight,
-                logging: false
-            }).then(function(cvs) {
-                var jsPDF = window.jspdf.jsPDF;
-                var imgWidth = 210;
-                var pageHeight = 297;
-                var imgHeight = (cvs.height * imgWidth) / cvs.width;
-                var pdf = new jsPDF('p', 'mm', 'a4');
-                var heightLeft = imgHeight;
-                var position = 0;
-                var imgData = cvs.toDataURL('image/jpeg', 0.92);
+            var iframe3d = document.querySelector('.model-3d-iframe-container');
+            var stampEl = document.getElementById('accepted-stamp');
+            var fabBtns = document.querySelector('.fab-container');
+            if (iframe3d) iframe3d.style.display = 'none';
+            if (stampEl) stampEl.style.display = 'none';
+            if (fabBtns) fabBtns.style.display = 'none';
 
-                pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
-
-                while (heightLeft > 0) {
-                    position = -(imgHeight - heightLeft);
-                    pdf.addPage();
-                    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-                    heightLeft -= pageHeight;
+            function capturePageDL(index) {
+                if (index >= allPages.length) {
+                    if (iframe3d) iframe3d.style.display = '';
+                    if (stampEl) { stampEl.style.display = ''; stampEl.classList.add('visible'); }
+                    if (fabBtns) fabBtns.style.display = '';
+                    pdf.save('Propuesta-Firmada-Riverton-HabitatBuilders.pdf');
+                    btn.textContent = 'Descargar Documento Firmado (PDF)';
+                    btn.disabled = false;
+                    return;
                 }
 
-                pdf.save('Propuesta-Firmada-Riverton-HabitatBuilders.pdf');
+                html2canvas(allPages[index], {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true,
+                    logging: false,
+                    backgroundColor: null
+                }).then(function(cvs) {
+                    if (index > 0) pdf.addPage();
+                    var imgData = cvs.toDataURL('image/jpeg', 0.92);
+                    var imgW = pageWidth;
+                    var imgH = (cvs.height * pageWidth) / cvs.width;
 
-                if (iframe) iframe.style.display = '';
-                if (stamp) stamp.classList.add('visible');
-                btn.textContent = 'Descargar Documento Firmado (PDF)';
-                btn.disabled = false;
-            }).catch(function() {
-                btn.textContent = 'Descargar Documento Firmado (PDF)';
-                btn.disabled = false;
-                window.print();
-            });
+                    if (imgH > pageHeight) {
+                        var ratio = pageHeight / imgH;
+                        imgW = pageWidth * ratio;
+                        imgH = pageHeight;
+                        var xOffset = (pageWidth - imgW) / 2;
+                        pdf.addImage(imgData, 'JPEG', xOffset, 0, imgW, imgH);
+                    } else {
+                        pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
+                    }
+                    capturePageDL(index + 1);
+                }).catch(function() {
+                    capturePageDL(index + 1);
+                });
+            }
+            capturePageDL(0);
         } else {
             btn.textContent = 'Descargar Documento Firmado (PDF)';
             btn.disabled = false;
